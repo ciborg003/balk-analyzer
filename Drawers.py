@@ -6,18 +6,18 @@ class AbstractNAngleDrawers:
         self.__ansys = ansys
         self.point_service = PointService(self.__ansys)
         self.line_service = LineService(self.__ansys)
-        self.plane_service = PlaneService(self.line_service, self.__ansys)
+        self.plain_service = PlainService(self.line_service, self.__ansys)
 
         self._body = body
         self._deflection_angle = angle * math.pi / 180
 
-    def subtract_plane(self, points, plane_id):
+    def subtract_plain(self, points, plain_id):
         point_ids = []
         for point in points:
             point_ids.append(self.point_service.add(point["x"], point["y"]))
 
-        removed_plane_id = self.plane_service.add(point_ids)
-        return self.plane_service.remove_plane_from_plane(plane_id, removed_plane_id)
+        removed_plain_id = self.plain_service.add(point_ids)
+        return self.plain_service.remove_plain_from_plain(plain_id, removed_plain_id)
 
     def calc_points(self, x0, y0, x_end, y_end, n):
         angle_0 = math.atan2(y_end - y0, x_end - x0)
@@ -32,7 +32,10 @@ class AbstractNAngleDrawers:
 
         return points
 
-    def draw_cells(self, plane_id):
+    def draw_cells_based_on_main_plain(self, plain_id):
+        pass
+
+    def draw_cells_volumes(self):
         pass
 
     def set_cells(self, cells):
@@ -46,8 +49,10 @@ class NAngleCellsDrawer(AbstractNAngleDrawers):
     def __init__(self, body, angle, ansys):
         super().__init__(body, angle, ansys)
 
-    def draw_cells(self, plane_id):
-        result_plane_id = plane_id
+
+    # Build an plain with cells based on main plain
+    def draw_cells_based_on_main_plain(self, plain_id):
+        result_plain_id = plain_id
 
         # Distance between cells in X and Y
         # len_x = (self._body.length - 2 * self._cells.radius * self._cells.columns) / (self._cells.columns + 1)
@@ -63,9 +68,9 @@ class NAngleCellsDrawer(AbstractNAngleDrawers):
                 current_x = self._body.get_x0_cells() + (j + 1) * len_x + (2 * j + 1) * self._cells.radius
                 points = self.calc_points_for_n_angle_cell_at_coordinate(current_x, current_y)
 
-                result_plane_id = self.subtract_plane(points, result_plane_id)
+                result_plain_id = self.subtract_plain(points, result_plain_id)
 
-        return result_plane_id
+        return result_plain_id
 
     # x0 and y0 are center of the figure
     def calc_points_for_n_angle_cell_at_coordinate(self, x0, y0):
@@ -94,8 +99,8 @@ class RectangleCellsDrawer(AbstractNAngleDrawers):
     def __init__(self, body, angle, ansys):
         super().__init__(body, angle, ansys)
 
-    def draw_cells(self, plane_id):
-        result_plane_id = plane_id
+    def draw_cells_based_on_main_plain(self, plain_id):
+        result_plain_id = plain_id
 
         len_x = (self._body.length - self._cells.cell_length * self._cells.columns) / (self._cells.columns + 1)
         len_y = (self._body.width - self._cells.cell_width * self._cells.rows) / (self._cells.rows + 1)
@@ -116,9 +121,9 @@ class RectangleCellsDrawer(AbstractNAngleDrawers):
                     {"x": x1_j, "y": y0_i}
                 ]
 
-                result_plane_id = self.subtract_plane(points, result_plane_id)
+                result_plain_id = self.subtract_plain(points, result_plain_id)
 
-        return result_plane_id
+        return result_plain_id
 
         # x_current = (-self._body.width) / 2.0 + (self.cell_obj.k + self.cell_obj.cell_width / 2.0)
         # y_current = (self._body.length / 2.0) - (self.cell_obj.k + (self.cell_obj.cell_length / 2.0))
@@ -135,13 +140,13 @@ class RectangleCellsDrawer(AbstractNAngleDrawers):
         #
         # for i in range(row):
         #     points = self.calc_points(x_current, y_current, x_end, y_end, 4)
-        #     result_plane_id = self.subtract_plane(points, result_plane_id)
+        #     result_plain_id = self.subtract_plain(points, result_plain_id)
         #
         #     for j in range(1, column):
         #         x_current += delta
         #         x_end += delta
         #         points = self.calc_points(x_current, y_current, x_end, y_end, 4)
-        #         result_plane_id = self.subtract_plane(points, result_plane_id)
+        #         result_plain_id = self.subtract_plain(points, result_plain_id)
         #
         #     x_current = leftHoleCenterX
         #     y_current = leftHoleCenterY - (self.cell_obj.k + self.cell_obj.cell_length)
@@ -151,7 +156,32 @@ class RectangleCellsDrawer(AbstractNAngleDrawers):
         #     x_end = x_current + self.cell_obj.cell_width / 2.0
         #     y_end = y_current + self.cell_obj.cell_length / 2.0
         #
-        # return result_plane_id
+        # return result_plain_id
+
+    def draw_cells_volumes(self):
+
+        len_x = (self._body.length - self._cells.cell_length * self._cells.columns) / (self._cells.columns + 1)
+        len_y = (self._body.width - self._cells.cell_width * self._cells.rows) / (self._cells.rows + 1)
+
+        for i in range(1, self._cells.rows + 1):
+            for j in range(1, self._cells.columns + 1):
+                x0_j = j * len_x + (j - 1) * self._cells.cell_length
+                x1_j = j * (len_x + self._cells.cell_length)
+
+                y0_i = i * len_y + (i - 1) * self._cells.cell_width
+                y1_i = i * (len_y + self._cells.cell_width)
+
+                points = [
+                    {"x": x0_j, "y": y0_i},
+                    {"x": x0_j, "y": y1_i},
+                    {"x": x1_j, "y": y1_i},
+                    {"x": x1_j, "y": y0_i}
+                ]
+                cell_plain_id = self.plain_service.add(points)
+                self.__ansys.voffst(cell_plain_id, self._body.height)
+                # result_plain_id = self.subtract_plain(points, result_plain_id)
+
+        # return result_plain_id
 
     def set_cells(self, cells):
         self._cells = cells
@@ -195,7 +225,7 @@ class LineService:
         self.__ansys.l(point1, point2)
         return self.__id
 
-class PlaneService:
+class PlainService:
     __id = 0
     __used_ids = set()
 
@@ -213,16 +243,24 @@ class PlaneService:
                 line_id = self.__line_service.add(points[i], points[0])
             lines.append(line_id)
 
+        if (self.__id > 0):
+            res = self.__ansys.run("*GET, KMax, LINE,, NUM, MAX")
+            start = res.index("VALUE= ") + 7
+            max = res[start:]
+            self.__id = int(float(max))
+
+        self.__id += 1
+
         command = "AL,%s" % (", ".join([str(line_id) for line_id in lines]))
         self.__ansys.run(command)
-        return self.__get_id()
+        return self.__id
 
-    def remove_plane_from_plane(self, plane_id, removed_plane_id):
-        self.__ansys.asba(plane_id, removed_plane_id)
+    def remove_plain_from_plain(self, plain_id, removed_plain_id):
+        self.__ansys.asba(plain_id, removed_plain_id)
 
         id = self.__get_id()
-        self.__used_ids.remove(plane_id)
-        self.__used_ids.remove(removed_plane_id)
+        self.__used_ids.remove(plain_id)
+        self.__used_ids.remove(removed_plain_id)
 
         return id
 
@@ -243,3 +281,22 @@ class PlaneService:
 
         self.__used_ids.add(id)
         return id
+
+class VolumeService:
+
+    def __init__(self, line_service, ansys):
+        self.__line_service = line_service
+        self.__ansys = ansys
+        super().__init__()
+
+    def voffst_area(self, area_id, dist):
+        self.__ansys.voffst(area_id, dist, 0)
+
+    def get_max_id(self):
+        res = self.__ansys.run("*GET, KMax, AREA,, NUM, MAX")
+        start = res.index("VALUE= ") + 7
+        max = res[start:]
+        return max
+
+    def subtract_volumes(self, main_volume_id, subtracted_volumes_ids):
+        self.__ansys.vsbv

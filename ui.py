@@ -25,6 +25,7 @@ class Ui_Dialog(object):
         super().__init__()
 
     def setupUi(self, Dialog):
+        self.__dialog = Dialog
         Dialog.setObjectName("Dialog")
         Dialog.resize(806, 440)
         Dialog.setModal(False)
@@ -135,6 +136,17 @@ class Ui_Dialog(object):
         self.input_footing_length.setGeometry(QtCore.QRect(670, 20, 113, 20))
         self.input_footing_length.setObjectName("input_footing_length")
 
+        self.detail_file = QtWidgets.QPushButton(Dialog)
+        self.detail_file.setGeometry(QtCore.QRect(10, 210, 40, 20))
+        self.detail_file.setObjectName("detail_file")
+        self.detail_file.clicked.connect(self.pick_model_file)
+
+        self.load_schema_file = QtWidgets.QPushButton(Dialog)
+        self.load_schema_file.setGeometry(QtCore.QRect(10, 240, 40, 20))
+        self.load_schema_file.setObjectName("detail_file")
+        self.load_schema_file.clicked.connect(self.pick_schema_load_file)
+
+
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
 
@@ -160,11 +172,16 @@ class Ui_Dialog(object):
             int(self.input_degree_end.text()),
             int(self.input_degree_step.text()))
 
+    def pick_model_file(self):
+        self.__detail_file_name = QtWidgets.QFileDialog.getOpenFileName(self.__dialog, 'Open file', 'c://', '3D model files (*.igs)')
+
+    def pick_schema_load_file(self):
+        self.__schema_load_file_name = QtWidgets.QFileDialog.getOpenFileName(self.__dialog, 'Open file', 'c://', '(*.*)')
 
     def research(self):
         context = self.__get_calculation_context()
         body_params = self.__get_body_params()
-        self.calculation = Calculation()
+        self.calculation = Calculation(self.__detail_file_name, self.__schema_load_file_name)
         thread.start_new_thread(self.calculation.calculate, (body_params, context, self.result_list))
 
     def retranslateUi(self, Dialog):
@@ -202,6 +219,8 @@ class Ui_Dialog(object):
         self.input_body_length.setText(_translate("Dialog", "20"))
         self.label_13.setText(_translate("Dialog", "Длина"))
         self.label_14.setText(_translate("Dialog", "Длина опоры"))
+        self.detail_file.setText(_translate("Dialog", "Файл детали"))
+        self.load_schema_file.setText(_translate("Dialog", "Файл схемы нагрузки"))
 
     def tableClick(self):
         item = self.result_list.selectedItems()[0]

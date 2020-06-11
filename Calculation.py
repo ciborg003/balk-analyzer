@@ -42,8 +42,10 @@ class CalculationContext:
 class Calculation:
 
 
-    def __init__(self):
+    def __init__(self, detail_fn, load_schema_fn):
         self.results = {}
+        self.detail_fn = detail_fn
+        self.load_schema_fn = load_schema_fn
 
     def calculate(self, body_params, context, result_list):
         root_folder = os.getcwd() + os.sep + 'researches' + os.sep + datetime.now().strftime('%d-%m-%Y %H-%M-%S')
@@ -75,6 +77,57 @@ class Calculation:
 
         return list
 
+    def researchFromDetailModel(self, body_params, calc_param, cells, research_folder, result_list, item=None):
+        res = 'Angle num: {}, Rotate angle: {}, Volume part: {}, Matrix degree: {}. In progress'.format(
+            calc_param.angle_num, calc_param.rotate_angle, calc_param.volume_part, calc_param.matrix_degree)
+
+        if item == None:
+            item = QListWidgetHashableItem(res)
+            result_list.addItem(item)
+
+        try:
+            self.results[item] = [body_params, calc_param, cells, research_folder, result_list, 'IN_PROGRESS']
+            ansys = self.init_ansys(research_folder)
+            drawer = self.create_drawer(ansys, cells, body_params, calc_param)
+            ansys.run("/ BATCH")
+            ansys.run("WPSTYLE,, , , , , , , 0")
+            ansys.run("/ AUX15")
+            ansys.run("IOPTN, IGES, SMOOTH")
+            ansys.run("IOPTN, MERGE, YES")
+            ansys.run("IOPTN, SOLID, YES")
+            ansys.run("IOPTN, SMALL, YES")
+            ansys.run("IOPTN, GTOLER, DEFA")
+            ansys.run("IGESIN, '1','IGS','%s' ! import" % (self.detail_fn))
+            ansys.run("! VPLOT")
+            ansys.run("FINISH")
+            ansys.prep7()
+
+            res = ansys.run("*GET, KMax, VOLU,, NUM, MAX")
+            start = res.index("VALUE= ") + 7
+            volume_id = res[start:]
+
+            drawer.set_cells(cells)
+            drawer.draw_cells_volumes()
+
+            ansys.run("VSBV,%s,ALL,,," % (volume_id))
+
+            with open(self.load_schema_fn) as load_schema_commands:
+                for command in load_schema_commands:
+                    ansys.run(command)
+
+            ansys.exit()
+
+            res = 'Angle num: {}, Rotate angle: {}, Volume part: {}, Matrix degree: {}. Finished'.format(
+                calc_param.angle_num, calc_param.rotate_angle, calc_param.volume_part, calc_param.matrix_degree)
+            self.results[res] = [body_params, calc_param, cells, research_folder, result_list, 'FINISHED']
+            item.setText(res)
+        except Exception as e:
+            print(traceback.format_exc())
+            res = 'Angle num: {}, Rotate angle: {}, Volume part: {}, Matrix degree: {}. Failed'.format(
+                calc_param.angle_num, calc_param.rotate_angle, calc_param.volume_part, calc_param.matrix_degree)
+            self.results[item] = [body_params, calc_param, cells, research_folder, result_list, 'IN_PROGRESS']
+            item.setText(res)
+
     def buildBody(self, body_params, calc_param, cells, research_folder, result_list, item = None):
         res = 'Angle num: {}, Rotate angle: {}, Volume part: {}, Matrix degree: {}. In progress'.format(
             calc_param.angle_num, calc_param.rotate_angle, calc_param.volume_part, calc_param.matrix_degree)
@@ -98,7 +151,7 @@ class Calculation:
                                 drawer.point_service.add(opora1_x1, opora1_y2, opora1_z),
                                 drawer.point_service.add(opora1_x2, opora1_y2, opora1_z),
                                 drawer.point_service.add(opora1_x2, opora1_y1, opora1_z)]
-            opora1_id = drawer.plane_service.add(opora1_point_ids)
+            opora1_id = drawer.plain_service.add(opora1_point_ids)
 
             opora2_x1 = body_params.length - (body_params.foot_spacing + body_params.footing_length);
             opora2_x2 = body_params.length - body_params.foot_spacing
@@ -109,7 +162,7 @@ class Calculation:
                                 drawer.point_service.add(opora2_x1, opora2_y2, opora2_z),
                                 drawer.point_service.add(opora2_x2, opora2_y2, opora2_z),
                                 drawer.point_service.add(opora2_x2, opora2_y1, opora2_z)]
-            opora2_id = drawer.plane_service.add(opora2_point_ids)
+            opora2_id = drawer.plain_service.add(opora2_point_ids)
 
             press_x1 = body_params.length/2 - 0.5
             press_x2 = body_params.length/2 + 0.5
@@ -120,24 +173,24 @@ class Calculation:
                                drawer.point_service.add(press_x1, press_y2, press_z),
                                drawer.point_service.add(press_x2, press_y2, press_z),
                                drawer.point_service.add(press_x2, press_y1, press_z)]
-            press_id = drawer.plane_service.add(press_point_ids)
+            press_id = drawer.plain_service.add(press_point_ids)
 
             drawer.set_cells(cells)
 
-            main_plane_point_ids = [
+            main_plain_point_ids = [
                 drawer.point_service.add(0, 0),
                 drawer.point_service.add(body_params.length, 0),
                 drawer.point_service.add(body_params.length, body_params.width),
                 drawer.point_service.add(0, body_params.width)]
 
-            main_plane_id = drawer.plane_service.add(main_plane_point_ids)
+            main_plain_id = drawer.plain_service.add(main_plain_point_ids)
 
-            result_plane_id = drawer.draw_cells(main_plane_id)
+            result_plain_id = drawer.draw_cells_based_on_main_plain(main_plain_id)
 
             ansys.voffst(opora1_id, -1)
             ansys.voffst(opora2_id, -1)
             ansys.voffst(press_id, 1)
-            ansys.voffst(result_plane_id, body_params.height)
+            ansys.voffst(result_plain_id, body_params.height)
 
             # ansys.run("ASEL, ALL")
             ansys.run("VGLUE, ALL")
@@ -237,7 +290,7 @@ class Calculation:
         calc_params = research_list[ResultIndexes.CALC_PARAMS]
         cells = research_list[ResultIndexes.CELLS]
         research_folder = research_list[ResultIndexes.RESEARCH_FOLDER]
-        self.buildBody(body_params, calc_params, cells, research_folder, result_list, item)
+        self.buildBody(body_params, calc_params, cells, research_folder, result_list, self. item)
 
 
 
