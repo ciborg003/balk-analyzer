@@ -3,10 +3,10 @@ import math
 class AbstractNAngleDrawers:
 
     def __init__(self, body, angle, ansys):
-        self.__ansys = ansys
-        self.point_service = PointService(self.__ansys)
-        self.line_service = LineService(self.__ansys)
-        self.plain_service = PlainService(self.line_service, self.__ansys)
+        self._ansys = ansys
+        self.point_service = PointService(self._ansys)
+        self.line_service = LineService(self._ansys)
+        self.plain_service = PlainService(self.line_service, self._ansys)
 
         self._body = body
         self._deflection_angle = angle * math.pi / 180
@@ -71,6 +71,31 @@ class NAngleCellsDrawer(AbstractNAngleDrawers):
                 result_plain_id = self.subtract_plain(points, result_plain_id)
 
         return result_plain_id
+
+    def draw_cells_volumes(self):
+        # Distance between cells in X and Y
+        # len_x = (self._body.length - 2 * self._cells.radius * self._cells.columns) / (self._cells.columns + 1)
+        available_body_len = self._body.get_xend_cells() - self._body.get_x0_cells()
+        len_x = (available_body_len - 2 * self._cells.radius * self._cells.columns) / (self._cells.columns + 1)
+        len_y = (self._body.width - 2 * self._cells.radius * self._cells.rows) / (self._cells.rows + 1)
+
+        for i in range(0, self._cells.rows):
+            current_y = (i + 1) * len_y + (2 * i + 1) * self._cells.radius
+
+            for j in range(0, self._cells.columns):
+                # current_x = (j + 1) * len_x + (2 * j + 1) * self._cells.radius
+                current_x = self._body.get_x0_cells() + (j + 1) * len_x + (2 * j + 1) * self._cells.radius
+                points = self.calc_points_for_n_angle_cell_at_coordinate(current_x, current_y)
+
+                point_ids = []
+                for point in points:
+                    point_ids.append(self.point_service.add(point["x"], point["y"]))
+
+                cell_plain_id = self.plain_service.add(point_ids)
+                self._ansys.voffst(cell_plain_id, self._body.height)
+
+
+
 
     # x0 and y0 are center of the figure
     def calc_points_for_n_angle_cell_at_coordinate(self, x0, y0):
@@ -178,7 +203,7 @@ class RectangleCellsDrawer(AbstractNAngleDrawers):
                     {"x": x1_j, "y": y0_i}
                 ]
                 cell_plain_id = self.plain_service.add(points)
-                self.__ansys.voffst(cell_plain_id, self._body.height)
+                self._ansys.voffst(cell_plain_id, self._body.height)
                 # result_plain_id = self.subtract_plain(points, result_plain_id)
 
         # return result_plain_id
@@ -195,11 +220,14 @@ class PointService:
         super().__init__()
 
     def add(self, x0, y0, z0=0):
-        if (self.__id > 0):
+        # if (self.__id > 0):
+        try:
             res = self.__ansys.run("*GET, KMax, Kp,, NUM, MAX")
             start = res.index("VALUE= ") + 7
             max = res[start:]
             self.__id = int(float(max))
+        except Exception:
+            self.__id = 0
 
         self.__id += 1
 
@@ -215,11 +243,13 @@ class LineService:
         super().__init__()
 
     def add(self, point1, point2):
-        if (self.__id > 0):
+        try:
             res = self.__ansys.run("*GET, KMax, LINE,, NUM, MAX")
             start = res.index("VALUE= ") + 7
             max = res[start:]
             self.__id = int(float(max))
+        except Exception:
+            self.__id = 0
 
         self.__id += 1
         self.__ansys.l(point1, point2)
@@ -243,15 +273,18 @@ class PlainService:
                 line_id = self.__line_service.add(points[i], points[0])
             lines.append(line_id)
 
-        if (self.__id > 0):
-            res = self.__ansys.run("*GET, KMax, LINE,, NUM, MAX")
+        try:
+            res = self.__ansys.run("*GET, KMax, AREA,, NUM, MAX")
             start = res.index("VALUE= ") + 7
             max = res[start:]
             self.__id = int(float(max))
+        except Exception:
+            self.__id = 0
 
         self.__id += 1
 
-        command = "AL,%s" % (", ".join([str(line_id) for line_id in lines]))
+        command = "A,%s" % (", ".join([str(point_id) for point_id in points]))
+        # command = "AL,%s" % (", ".join([str(line_id) for line_id in lines]))
         self.__ansys.run(command)
         return self.__id
 
@@ -293,7 +326,7 @@ class VolumeService:
         self.__ansys.voffst(area_id, dist, 0)
 
     def get_max_id(self):
-        res = self.__ansys.run("*GET, KMax, AREA,, NUM, MAX")
+        res = self.__ansys.run("*GET, KMax, VOLU,, NUM, MAX")
         start = res.index("VALUE= ") + 7
         max = res[start:]
         return max

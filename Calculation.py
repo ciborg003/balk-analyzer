@@ -44,8 +44,8 @@ class Calculation:
 
     def __init__(self, detail_fn, load_schema_fn):
         self.results = {}
-        self.detail_fn = detail_fn
-        self.load_schema_fn = load_schema_fn
+        self.detail_fn = detail_fn[0]
+        self.load_schema_fn = load_schema_fn[0]
 
     def calculate(self, body_params, context, result_list):
         root_folder = os.getcwd() + os.sep + 'researches' + os.sep + datetime.now().strftime('%d-%m-%Y %H-%M-%S')
@@ -62,7 +62,7 @@ class Calculation:
             cells.v_cells = body_params.v * param.volume_part / 100
             cells.calculation()
             count += 1
-            self.buildBody(body_params, param, cells, root_folder + os.sep + str(count), result_list)
+            self.researchFromDetailModel(body_params, param, cells, root_folder + os.sep + str(count), result_list)
 
 
 
@@ -97,10 +97,11 @@ class Calculation:
             ansys.run("IOPTN, SOLID, YES")
             ansys.run("IOPTN, SMALL, YES")
             ansys.run("IOPTN, GTOLER, DEFA")
-            ansys.run("IGESIN, '1','IGS','%s' ! import" % (self.detail_fn))
+            ansys.run("IGESIN, '%s','IGS','%s' ! import" % (str(pathlib.Path(self.detail_fn).stem), str(pathlib.Path(self.detail_fn).parent.absolute())))
             ansys.run("! VPLOT")
             ansys.run("FINISH")
             ansys.prep7()
+            ansys.run("NUMCMP, ALL")
 
             res = ansys.run("*GET, KMax, VOLU,, NUM, MAX")
             start = res.index("VALUE= ") + 7
@@ -111,9 +112,10 @@ class Calculation:
 
             ansys.run("VSBV,%s,ALL,,," % (volume_id))
 
-            with open(self.load_schema_fn) as load_schema_commands:
+            with open(file=self.load_schema_fn, mode="r", encoding="utf-8") as load_schema_commands:
                 for command in load_schema_commands:
-                    ansys.run(command)
+                    if not command.isspace() and command[0] != '!':
+                        ansys.run(command)
 
             ansys.exit()
 
@@ -266,21 +268,14 @@ class Calculation:
         return status == "FINISHED"
 
     def show_result(self, item):
-        print("\n\n\n\n\n\n2222222222222222222222222222")
         def show(path):
-            print("\n\n\n\n\n\n555555555555555555555555555555555555555")
             res = pyansys.read_binary(path)
-            print("\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1RESSS")
             res.plot_nodal_solution(0, 'x', label='Displacement')
-            print("\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1\n1end")
 
-        print("\n\n\n\n\n\n333333333333333333333333333333")
         path = self.results[item][ResultIndexes.RESEARCH_FOLDER] + os.sep + "file.rst"
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        print("\n\n\n\n\n\n444444444444444444444444444444444444444")
         res = loop.run_until_complete(show(path))
-
 
 
     def retry_research(self, item, result_list):
