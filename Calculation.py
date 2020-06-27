@@ -3,7 +3,7 @@ import os
 import pathlib
 import traceback
 from datetime import datetime
-import subprocess
+
 import pyansys
 
 from Cells import *

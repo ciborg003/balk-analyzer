@@ -5,7 +5,7 @@ from BodyParams import *
 
 class AbstractAngle(ABC):
 
-    body = BodyParameters(0, 0, 0)
+    body = BodyParameters(0, 0, 0, 0, 0, 0)
     accuracy = 7
     columns = rows = 0
     side = 0

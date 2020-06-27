@@ -61,11 +61,11 @@ class NAngleCellsDrawer(AbstractNAngleDrawers):
         len_y = (self._body.width - 2 * self._cells.radius * self._cells.rows) / (self._cells.rows + 1)
 
         for i in range(0, self._cells.rows):
-            current_y = (i + 1) * len_y + (2 * i + 1) * self._cells.radius
+            current_y = self._body.y0 + (i + 1) * len_y + (2 * i + 1) * self._cells.radius
 
             for j in range(0, self._cells.columns):
                 # current_x = (j + 1) * len_x + (2 * j + 1) * self._cells.radius
-                current_x = self._body.get_x0_cells() + (j + 1) * len_x + (2 * j + 1) * self._cells.radius
+                current_x = self._body.x0 + (j + 1) * len_x + (2 * j + 1) * self._cells.radius
                 points = self.calc_points_for_n_angle_cell_at_coordinate(current_x, current_y)
 
                 result_plain_id = self.subtract_plain(points, result_plain_id)
@@ -75,16 +75,16 @@ class NAngleCellsDrawer(AbstractNAngleDrawers):
     def draw_cells_volumes(self):
         # Distance between cells in X and Y
         # len_x = (self._body.length - 2 * self._cells.radius * self._cells.columns) / (self._cells.columns + 1)
-        available_body_len = self._body.get_xend_cells() - self._body.get_x0_cells()
+        available_body_len = self._body.x1 - self._body.get_x0_cells()
         len_x = (available_body_len - 2 * self._cells.radius * self._cells.columns) / (self._cells.columns + 1)
         len_y = (self._body.width - 2 * self._cells.radius * self._cells.rows) / (self._cells.rows + 1)
 
         for i in range(0, self._cells.rows):
-            current_y = (i + 1) * len_y + (2 * i + 1) * self._cells.radius
+            current_y = self._body.y0 + (i + 1) * len_y + (2 * i + 1) * self._cells.radius
 
             for j in range(0, self._cells.columns):
                 # current_x = (j + 1) * len_x + (2 * j + 1) * self._cells.radius
-                current_x = self._body.get_x0_cells() + (j + 1) * len_x + (2 * j + 1) * self._cells.radius
+                current_x = self._body.x0 + (j + 1) * len_x + (2 * j + 1) * self._cells.radius
                 points = self.calc_points_for_n_angle_cell_at_coordinate(current_x, current_y)
 
                 point_ids = []
@@ -133,11 +133,11 @@ class RectangleCellsDrawer(AbstractNAngleDrawers):
         for i in range(1, self._cells.rows + 1):
             for j in range(1, self._cells.columns + 1):
 
-                x0_j = j * len_x + (j - 1) * self._cells.cell_length
-                x1_j = j * (len_x + self._cells.cell_length)
+                x0_j = self._body.x0 + j * len_x + (j - 1) * self._cells.cell_length
+                x1_j = self._body.x0 + j * (len_x + self._cells.cell_length)
 
-                y0_i = i * len_y + (i - 1) * self._cells.cell_width
-                y1_i = i * (len_y + self._cells.cell_width)
+                y0_i = self._body.y0 + i * len_y + (i - 1) * self._cells.cell_width
+                y1_i = self._body.y0 + i * (len_y + self._cells.cell_width)
 
                 points = [
                     {"x": x0_j, "y": y0_i},
@@ -150,39 +150,6 @@ class RectangleCellsDrawer(AbstractNAngleDrawers):
 
         return result_plain_id
 
-        # x_current = (-self._body.width) / 2.0 + (self.cell_obj.k + self.cell_obj.cell_width / 2.0)
-        # y_current = (self._body.length / 2.0) - (self.cell_obj.k + (self.cell_obj.cell_length / 2.0))
-        # x_end = ((-self._body.width) / 2.0) + (self.cell_obj.k + self.cell_obj.cell_width)
-        # y_end = (self._body.length / 2.0) - (self.cell_obj.k + self.cell_obj.cell_length)
-        #
-        # leftHoleCenterX = x_current
-        # leftHoleCenterY = y_current
-        #
-        # delta = self.cell_obj.cell_width + self.cell_obj.k
-        #
-        # row = self.cell_obj.rows
-        # column = self.cell_obj.columns
-        #
-        # for i in range(row):
-        #     points = self.calc_points(x_current, y_current, x_end, y_end, 4)
-        #     result_plain_id = self.subtract_plain(points, result_plain_id)
-        #
-        #     for j in range(1, column):
-        #         x_current += delta
-        #         x_end += delta
-        #         points = self.calc_points(x_current, y_current, x_end, y_end, 4)
-        #         result_plain_id = self.subtract_plain(points, result_plain_id)
-        #
-        #     x_current = leftHoleCenterX
-        #     y_current = leftHoleCenterY - (self.cell_obj.k + self.cell_obj.cell_length)
-        #     leftHoleCenterX = x_current
-        #     leftHoleCenterY = y_current
-        #
-        #     x_end = x_current + self.cell_obj.cell_width / 2.0
-        #     y_end = y_current + self.cell_obj.cell_length / 2.0
-        #
-        # return result_plain_id
-
     def draw_cells_volumes(self):
 
         len_x = (self._body.length - self._cells.cell_length * self._cells.columns) / (self._cells.columns + 1)
@@ -190,11 +157,11 @@ class RectangleCellsDrawer(AbstractNAngleDrawers):
 
         for i in range(1, self._cells.rows + 1):
             for j in range(1, self._cells.columns + 1):
-                x0_j = j * len_x + (j - 1) * self._cells.cell_length
-                x1_j = j * (len_x + self._cells.cell_length)
+                x0_j = self._body.x0 + j * len_x + (j - 1) * self._cells.cell_length
+                x1_j = self._body.x0 + j * (len_x + self._cells.cell_length)
 
-                y0_i = i * len_y + (i - 1) * self._cells.cell_width
-                y1_i = i * (len_y + self._cells.cell_width)
+                y0_i = self._body.y0 + i * len_y + (i - 1) * self._cells.cell_width
+                y1_i = self._body.y0 + i * (len_y + self._cells.cell_width)
 
                 points = [
                     {"x": x0_j, "y": y0_i},
