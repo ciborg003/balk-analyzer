@@ -1,4 +1,3 @@
-import asyncio
 import os
 import pathlib
 import traceback
@@ -271,11 +270,8 @@ class Calculation:
         def show(path):
             res = pyansys.read_binary(path)
             res.plot_nodal_solution(0, 'x', label='Displacement')
-
         path = self.results[item][ResultIndexes.RESEARCH_FOLDER] + os.sep + "file.rst"
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        res = loop.run_until_complete(show(path))
+        os.system("plot_result.py \"" + path + "\"")
 
 
     def retry_research(self, item, result_list):
