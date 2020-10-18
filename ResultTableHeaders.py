@@ -1,0 +1,7 @@
+class ResultTableHeaders:
+    ANGLE_NUM=0
+    ROTATE_ANGLE=1
+    VOLUME_PART=2
+    MATRIX_DEGREE=3
+    STATUS=4
+    MAX_PRESS=5

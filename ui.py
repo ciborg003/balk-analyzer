@@ -5,15 +5,15 @@
 # Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
-import typing
+
+import _thread as thread
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QMutex
-from PyQt5.QtWidgets import QWidget
 
-from Calculation import CalculationContext, Calculation
 from BodyParams import BodyParameters
-import _thread as thread
+from Calculation import CalculationContext, Calculation
+from ResultTableHeaders import ResultTableHeaders
 
 
 class Ui_Dialog(object):
@@ -98,14 +98,26 @@ class Ui_Dialog(object):
         self.button_research.setGeometry(QtCore.QRect(600, 275, 200, 30))
         self.button_research.setObjectName("button_research")
         self.button_research.clicked.connect(self.research)
-        self.result_list = QtWidgets.QListWidget(Dialog)
-        self.result_list.setGeometry(QtCore.QRect(10, 275, 525, 200))
-        self.result_list.setObjectName("result_list")
-        # self.result_list.clicked.connect(self.tableClick)
+        self.result_table = QtWidgets.QTableWidget(Dialog)
+        self.result_table.setColumnCount(6)
+        self.result_table.horizontalHeader().setDefaultAlignment(QtCore.Qt.AlignLeft)
+        self.result_table.setHorizontalHeaderLabels(["Angle #","Rotate Angle","Volume part, %","Matrix degree","Status","Max pressure"])
+        self.result_table.setColumnWidth(ResultTableHeaders.ANGLE_NUM, 80)
+        self.result_table.setColumnWidth(ResultTableHeaders.ROTATE_ANGLE, 80)
+        self.result_table.setColumnWidth(ResultTableHeaders.VOLUME_PART, 80)
+        self.result_table.setColumnWidth(ResultTableHeaders.MATRIX_DEGREE, 80)
+        self.result_table.setColumnWidth(ResultTableHeaders.STATUS, 80)
+        self.result_table.setColumnWidth(ResultTableHeaders.MAX_PRESS, 80)
+        self.result_table.setGeometry(QtCore.QRect(10, 275, 525, 200))
+        self.result_table.setEditTriggers(QtWidgets.QTableWidget.NoEditTriggers)
         self.button_result = QtWidgets.QPushButton(Dialog)
         self.button_result.setGeometry(QtCore.QRect(600, 315, 200, 30))
         self.button_result.setObjectName("button_retry")
-        self.button_result.clicked.connect(self.retry)
+        self.button_result.clicked.connect(self.show_result)
+        self.button_stress = QtWidgets.QPushButton(Dialog)
+        self.button_stress.setGeometry(QtCore.QRect(600, 355, 200, 30))
+        self.button_stress.setObjectName("button_stress")
+        self.button_stress.clicked.connect(self.show_stress_chart)
 
 
         #Area for cells configuration
@@ -148,27 +160,6 @@ class Ui_Dialog(object):
         self.input_body_x1.setGeometry(QtCore.QRect(730, 120, 50, 20))
         self.input_body_x1.setObjectName("input_body_x1")
 
-        # self.label_body_height = QtWidgets.QLabel(Dialog)
-        # self.label_body_height.setGeometry(QtCore.QRect(620, 40, 51, 20))
-        # self.label_body_height.setObjectName("label_body_height")
-        # self.input_body_height = QtWidgets.QLineEdit(Dialog)
-        # self.input_body_height.setGeometry(QtCore.QRect(670, 40, 50, 20))
-        # self.input_body_height.setObjectName("input_body_height")
-        #
-        # self.label_body_width = QtWidgets.QLabel(Dialog)
-        # self.label_body_width.setGeometry(QtCore.QRect(620, 80, 51, 20))
-        # self.label_body_width.setObjectName("label_body_width")
-        # self.input_body_width = QtWidgets.QLineEdit(Dialog)
-        # self.input_body_width.setGeometry(QtCore.QRect(670, 80, 50, 20))
-        # self.input_body_width.setObjectName("input_body_width")
-        #
-        # self.label_body_length = QtWidgets.QLabel(Dialog)
-        # self.label_body_length.setGeometry(QtCore.QRect(620, 120, 51, 16))
-        # self.label_body_length.setObjectName("label_body_length")
-        # self.input_body_length = QtWidgets.QLineEdit(Dialog)
-        # self.input_body_length.setGeometry(QtCore.QRect(670, 120, 50, 20))
-        # self.input_body_length.setObjectName("input_body_length")
-
         #Input files form
         self.button_detail_file = QtWidgets.QPushButton(Dialog)
         self.button_detail_file.setGeometry(QtCore.QRect(10, 200, 200, 25))
@@ -194,16 +185,12 @@ class Ui_Dialog(object):
 
     def __get_body_params(self):
         return BodyParameters(
-            int(self.input_body_x0.text()),
-            int(self.input_body_x1.text()),
-            int(self.input_body_y0.text()),
-            int(self.input_body_y1.text()),
-            int(self.input_body_z0.text()),
-            int(self.input_body_z1.text()))
-        # return BodyParameters(
-        #     int(self.input_body_width.text()),
-        #     int(self.input_body_length.text()),
-        #     int(self.input_body_z0.text()))
+            float(self.input_body_x0.text()),
+            float(self.input_body_x1.text()),
+            float(self.input_body_y0.text()),
+            float(self.input_body_y1.text()),
+            float(self.input_body_z0.text()),
+            float(self.input_body_z1.text()))
 
     def __get_calculation_context(self):
         return CalculationContext(
@@ -232,7 +219,7 @@ class Ui_Dialog(object):
         context = self.__get_calculation_context()
         body_params = self.__get_body_params()
         self.calculation = Calculation(self.__detail_file_name, self.__schema_load_file_name)
-        thread.start_new_thread(self.calculation.calculate, (body_params, context, self.result_list))
+        thread.start_new_thread(self.calculation.calculate, (body_params, context, self.result_table))
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
@@ -258,12 +245,7 @@ class Ui_Dialog(object):
         self.input_angle_num_step.setText(_translate("Dialog", "1"))
         self.button_research.setText(_translate("Dialog", "Исследовать"))
         self.button_result.setText(_translate("Dialog", "Результат"))
-        # self.label_body_height.setText(_translate("Dialog", "Высота"))
-        # self.label_body_width.setText(_translate("Dialog", "Ширина"))
-        # self.input_body_width.setText(_translate("Dialog", "10"))
-        # self.input_body_height.setText(_translate("Dialog", "10"))
-        # self.input_body_length.setText(_translate("Dialog", "10"))
-        # self.label_body_length.setText(_translate("Dialog", "Длина"))
+        self.button_stress.setText(_translate("Dialog", "Стресс"))
 
         self.label_body_z0.setText(_translate("Dialog", "Z0"))
         self.input_body_z0.setText(_translate("Dialog", "0"))
@@ -281,16 +263,18 @@ class Ui_Dialog(object):
         self.button_detail_file.setText(_translate("Dialog", "Файл детали"))
         self.button_load_schema_file.setText(_translate("Dialog", "Файл схемы нагрузки"))
 
-    def tableClick(self):
-        item = self.result_list.selectedItems()[0]
-        self.button_result.setEnabled(self.calculation.is_retry_successful(item.text()))
+    def show_result(self):
 
-    def retry(self):
-        if len(self.result_list.selectedItems()) == 1:
-            item = self.result_list.selectedItems()[0]
-            self.calculation.show_result(item)
-            # thread.start_new_thread(self.calculation.show_result, [item])
-            # self.__mutex.unlock()
+        #if row is picked
+        if (self.result_table.currentRow() != -1):
+            self.calculation.show_result(self.result_table .currentRow())
+            pass
+
+    def show_stress_chart(self):
+        if (self.result_table.currentRow() != -1):
+            self.calculation.show_stress_chart(self.result_table.currentRow())
+
+
 
 class MyDialog(QtWidgets.QDialog):
 

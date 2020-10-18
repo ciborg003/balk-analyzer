@@ -1,13 +1,16 @@
+import re
 import os
 import pathlib
 import traceback
 from datetime import datetime
-
+import pandas as pd
+import numpy as np
 import pyansys
+from PyQt5.QtWidgets import QTableWidgetItem
 
 from Cells import *
 from Drawers import NAngleCellsDrawer, RectangleCellsDrawer
-from QListWidgetHashableItem import QListWidgetHashableItem
+from ResultTableHeaders import ResultTableHeaders
 
 
 class CalculationParams:
@@ -46,7 +49,7 @@ class Calculation:
         self.detail_fn = detail_fn[0]
         self.load_schema_fn = load_schema_fn[0]
 
-    def calculate(self, body_params, context, result_list):
+    def calculate(self, body_params, context, result_table):
         root_folder = os.getcwd() + os.sep + 'researches' + os.sep + datetime.now().strftime('%d-%m-%Y %H-%M-%S')
         count = 0
         for param in self.__calc_params(context):
@@ -60,8 +63,17 @@ class Calculation:
             cells.cell_height = body_params.height
             cells.v_cells = body_params.v * param.volume_part / 100
             cells.calculation()
+
+            result_table.setRowCount(count+1)
+            result_table.setItem(count, ResultTableHeaders.ANGLE_NUM, QTableWidgetItem(str(param.angle_num)))
+            result_table.setItem(count, ResultTableHeaders.ROTATE_ANGLE, QTableWidgetItem(str(param.rotate_angle)))
+            result_table.setItem(count, ResultTableHeaders.VOLUME_PART, QTableWidgetItem(str(param.volume_part)))
+            result_table.setItem(count, ResultTableHeaders.MATRIX_DEGREE, QTableWidgetItem(str(param.matrix_degree)))
+            result_table.setItem(count, ResultTableHeaders.STATUS, QTableWidgetItem('In progress'))
+
+            self.researchFromDetailModel(body_params, param, cells, root_folder + os.sep + str(count), result_table, count)
+
             count += 1
-            self.researchFromDetailModel(body_params, param, cells, root_folder + os.sep + str(count), result_list)
 
 
 
@@ -76,16 +88,9 @@ class Calculation:
 
         return list
 
-    def researchFromDetailModel(self, body_params, calc_param, cells, research_folder, result_list, item=None):
-        res = 'Angle num: {}, Rotate angle: {}, Volume part: {}, Matrix degree: {}. In progress'.format(
-            calc_param.angle_num, calc_param.rotate_angle, calc_param.volume_part, calc_param.matrix_degree)
-
-        if item == None:
-            item = QListWidgetHashableItem(res)
-            result_list.addItem(item)
-
+    def researchFromDetailModel(self, body_params, calc_param, cells, research_folder, result_table, count):
         try:
-            self.results[item] = [body_params, calc_param, cells, research_folder, result_list, 'IN_PROGRESS']
+            self.results[count] = [body_params, calc_param, cells, research_folder, 'IN_PROGRESS']
             ansys = self.init_ansys(research_folder)
             drawer = self.create_drawer(ansys, cells, body_params, calc_param)
             ansys.run("/ BATCH")
@@ -116,134 +121,29 @@ class Calculation:
                     if not command.isspace() and command[0] != '!':
                         ansys.run(command)
 
-            ansys.exit()
-
-            res = 'Angle num: {}, Rotate angle: {}, Volume part: {}, Matrix degree: {}. Finished'.format(
-                calc_param.angle_num, calc_param.rotate_angle, calc_param.volume_part, calc_param.matrix_degree)
-            self.results[res] = [body_params, calc_param, cells, research_folder, result_list, 'FINISHED']
-            item.setText(res)
-        except Exception as e:
-            print(traceback.format_exc())
-            res = 'Angle num: {}, Rotate angle: {}, Volume part: {}, Matrix degree: {}. Failed'.format(
-                calc_param.angle_num, calc_param.rotate_angle, calc_param.volume_part, calc_param.matrix_degree)
-            self.results[item] = [body_params, calc_param, cells, research_folder, result_list, 'IN_PROGRESS']
-            item.setText(res)
-
-    def buildBody(self, body_params, calc_param, cells, research_folder, result_list, item = None):
-        res = 'Angle num: {}, Rotate angle: {}, Volume part: {}, Matrix degree: {}. In progress'.format(
-            calc_param.angle_num, calc_param.rotate_angle, calc_param.volume_part, calc_param.matrix_degree)
-
-        if item == None:
-            item = QListWidgetHashableItem(res)
-            result_list.addItem(item)
-
-        try:
-            self.results[item] = [body_params, calc_param, cells, research_folder, result_list, 'IN_PROGRESS']
-            ansys = self.init_ansys(research_folder)
-            drawer = self.create_drawer(ansys, cells, body_params, calc_param)
-            ansys.prep7()
-
-            opora1_x1 = body_params.foot_spacing;
-            opora1_x2 = body_params.foot_spacing + body_params.footing_length
-            opora1_y1 = 0;
-            opora1_y2 = body_params.width
-            opora1_z = -1
-            opora1_point_ids = [drawer.point_service.add(opora1_x1, opora1_y1, opora1_z),
-                                drawer.point_service.add(opora1_x1, opora1_y2, opora1_z),
-                                drawer.point_service.add(opora1_x2, opora1_y2, opora1_z),
-                                drawer.point_service.add(opora1_x2, opora1_y1, opora1_z)]
-            opora1_id = drawer.plain_service.add(opora1_point_ids)
-
-            opora2_x1 = body_params.length - (body_params.foot_spacing + body_params.footing_length);
-            opora2_x2 = body_params.length - body_params.foot_spacing
-            opora2_y1 = 0;
-            opora2_y2 = body_params.width
-            opora2_z = -1
-            opora2_point_ids = [drawer.point_service.add(opora2_x1, opora2_y1, opora2_z),
-                                drawer.point_service.add(opora2_x1, opora2_y2, opora2_z),
-                                drawer.point_service.add(opora2_x2, opora2_y2, opora2_z),
-                                drawer.point_service.add(opora2_x2, opora2_y1, opora2_z)]
-            opora2_id = drawer.plain_service.add(opora2_point_ids)
-
-            press_x1 = body_params.length/2 - 0.5
-            press_x2 = body_params.length/2 + 0.5
-            press_y1 = 0
-            press_y2 = body_params.width
-            press_z = body_params.height + 1
-            press_point_ids = [drawer.point_service.add(press_x1, press_y1, press_z),
-                               drawer.point_service.add(press_x1, press_y2, press_z),
-                               drawer.point_service.add(press_x2, press_y2, press_z),
-                               drawer.point_service.add(press_x2, press_y1, press_z)]
-            press_id = drawer.plain_service.add(press_point_ids)
-
-            drawer.set_cells(cells)
-
-            main_plain_point_ids = [
-                drawer.point_service.add(0, 0),
-                drawer.point_service.add(body_params.length, 0),
-                drawer.point_service.add(body_params.length, body_params.width),
-                drawer.point_service.add(0, body_params.width)]
-
-            main_plain_id = drawer.plain_service.add(main_plain_point_ids)
-
-            result_plain_id = drawer.draw_cells_based_on_main_plain(main_plain_id)
-
-            ansys.voffst(opora1_id, -1)
-            ansys.voffst(opora2_id, -1)
-            ansys.voffst(press_id, 1)
-            ansys.voffst(result_plain_id, body_params.height)
-
-            # ansys.run("ASEL, ALL")
-            ansys.run("VGLUE, ALL")
-
-            ansys.run("ASEL, ALL")
-            ansys.run("DENSITY = 8.0e-6")
-            ansys.run("YOUNG = 210000.0")
-            ansys.run("MP, EX, 1, YOUNG")
-            ansys.run("MP, NUXY, 1, 0.3")
-            ansys.run("MP, DENS, 1, DENSITY")
-            ansys.run("et, 1, solid186")
-            ansys.run("MSHKEY, 0")
-            ansys.run("MSHAPE, 1, 3d")
-            ansys.run("VMESH, all")
-            ansys.run("FINISH")
-
-            ansys.run("/ SOL")
-            ansys.run("FLST, 2, 2, 5, ORDE, 2")
-            ansys.run("FITEM, 2, 1")
-            ansys.run("FITEM, 2, -2")
-            ansys.run("/ GO")
-            ansys.run("DA, P51X, ALL,")
-            ansys.run("FLST, 2, 1, 5, ORDE, 1")
-            ansys.run("FITEM, 2, 3")
-            ansys.run("/ GO")
-            ansys.run("SFA, P51X, 1, PRES, 1000")
-            ansys.run("! / STATUS, SOLU")
-            ansys.run("SOLVE")
-            ansys.run("FINISH")
-            ansys.run("/ POST1")
-            ansys.run("SET, FIRST")
-            ansys.run("NSORT, S, EQV")
-            ansys.run("*GET, STRESS_MAX, SORT,, MAX")
-            ansys.run("*STATUS, STRESS_MAX")
-            ansys.run("AVPRIN, 0,,")
-            ansys.run("ETABLE, EVolume, VOLU,")
-            ansys.run("SSUM")
-            ansys.run("*GET, total_vol, SSUM,, ITEM, EVOLUME")
-            ansys.run("*STATUS, total_vol")
+            max_press = self.get_max_press(ansys)
+            result_table.setItem(count, ResultTableHeaders.MAX_PRESS, QTableWidgetItem(str(max_press)))
 
             ansys.exit()
 
-            res = 'Angle num: {}, Rotate angle: {}, Volume part: {}, Matrix degree: {}. Finished'.format(calc_param.angle_num, calc_param.rotate_angle, calc_param.volume_part, calc_param.matrix_degree)
-            self.results[res] = [body_params, calc_param, cells, research_folder, result_list, 'FINISHED']
-            item.setText(res)
+            result_table.setItem(count, ResultTableHeaders.STATUS, QTableWidgetItem('Finished'))
+            self.results[count] = [body_params, calc_param, cells, research_folder, 'FINISHED']
         except Exception as e:
             print(traceback.format_exc())
-            res = 'Angle num: {}, Rotate angle: {}, Volume part: {}, Matrix degree: {}. Failed'.format(
-                calc_param.angle_num, calc_param.rotate_angle, calc_param.volume_part, calc_param.matrix_degree)
-            self.results[item] = [body_params, calc_param, cells, research_folder, result_list, 'IN_PROGRESS']
-            item.setText(res)
+            result_table.setItem(count, ResultTableHeaders.STATUS, QTableWidgetItem('Failed'))
+            self.results[count] = [body_params, calc_param, cells, research_folder, 'IN_PROGRESS']
 
+    def get_max_press(self, ansys):
+        ansys.run("/ POST1")
+        ansys.run("SET, FIRST")
+        ansys.run("NSORT, S, EQV")
+        ansys.run("*GET, STRESS_MAX, SORT,, MAX")
+        ansys.run("STRESS_MAX")
+        status = ansys.run("*STATUS, STRESS_MAX")
+        start = status.index("\n STRESS_MAX")
+        max_stress = re.findall('\d+\\.\d+', status[start:])[0]
+
+        return float(max_stress)
 
     def init_ansys(self, root_folder):
         path = pathlib.Path(root_folder)
@@ -261,34 +161,19 @@ class Calculation:
         elif (issubclass(cells.__class__, RectangleCells)):
             return RectangleCellsDrawer(body_params, cells.rows, ansys)
 
-    def is_retry_successful(self, key):
-        status = self.results[key][ResultIndexes.STATUS]
+    def show_result(self, index):
+        if (self.results[index][ResultIndexes.STATUS] == 'FINISHED'):
+            path = self.results[index][ResultIndexes.RESEARCH_FOLDER] + os.sep + "file.rst"
+            os.system("plot_result.py \"" + path + "\"")
 
-        return status == "FINISHED"
-
-    def show_result(self, item):
-        def show(path):
-            res = pyansys.read_binary(path)
-            res.plot_nodal_solution(0, 'x', label='Displacement')
-        path = self.results[item][ResultIndexes.RESEARCH_FOLDER] + os.sep + "file.rst"
-        os.system("plot_result.py \"" + path + "\"")
-
-
-    def retry_research(self, item, result_list):
-        research_list = self.results[item]
-
-        body_params = research_list[ResultIndexes.BODY_PARAMS]
-        calc_params = research_list[ResultIndexes.CALC_PARAMS]
-        cells = research_list[ResultIndexes.CELLS]
-        research_folder = research_list[ResultIndexes.RESEARCH_FOLDER]
-        self.buildBody(body_params, calc_params, cells, research_folder, result_list, self. item)
-
-
+    def show_stress_chart(self, index):
+        if (self.results[index][ResultIndexes.STATUS] == 'FINISHED'):
+            path = self.results[index][ResultIndexes.RESEARCH_FOLDER] + os.sep + "file.rst"
+            os.system("plot_stress_chart.py \"" + path + "\"")
 
 class ResultIndexes:
     BODY_PARAMS = 0
     CALC_PARAMS = 1
     CELLS = 2
     RESEARCH_FOLDER = 3
-    RESULT_LIST = 4
-    STATUS = 5
+    STATUS = 4

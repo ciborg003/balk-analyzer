@@ -89,7 +89,7 @@ class NAngleCellsDrawer(AbstractNAngleDrawers):
 
                 point_ids = []
                 for point in points:
-                    point_ids.append(self.point_service.add(point["x"], point["y"]))
+                    point_ids.append(self.point_service.add(point["x"], point["y"], self._body.get_z0_cells()))
 
                 cell_plain_id = self.plain_service.add(point_ids)
                 self._ansys.voffst(cell_plain_id, self._body.height)
